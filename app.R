@@ -70,12 +70,12 @@ server <- function(input, output, session){
   datos <- reactive({
     inFile <- input$file1
     if (is.null(inFile)) {
-      # Retorna NULL si no se ha seleccionado ningún archivo
+      # Retorn NULL if there is no file selected
       return(NULL)
     }
     QDA <- read_excel(inFile$datapath)
-    QDA$Repetición <- as.character(QDA$Repetición)
-    QDA$Panelista <- as.character(QDA$Panelista)
+    QDA$Repetition <- as.character(QDA$Repetition)
+    QDA$Panelist <- as.character(QDA$Panelist)
     return(QDA)
   })
   
@@ -83,7 +83,7 @@ server <- function(input, output, session){
     datos() 
   })
   
-  Correlacion <- reactive({
+  Correlation <- reactive({
     QDA <- datos()
     if (is.null(QDA)) {
       return()
@@ -94,7 +94,7 @@ server <- function(input, output, session){
   })
   
   output$'Correlation Matrix' <- renderDataTable({
-    Correlacion()
+    Correlation()
   })
   
   PCAresults <- reactive({
@@ -130,7 +130,7 @@ server <- function(input, output, session){
       return(NULL)
     }
     
-    # Realizar el PCA, excluyendo las primeras 3 Columnas
+    # Launch PCA, excluding the first 3 Columns
     PCA <- PCA(QDA[, -c(1:3)], graph = TRUE)
   })
   output$Variance <- renderPlot({
@@ -146,8 +146,8 @@ server <- function(input, output, session){
     if (is.null(pca_result) || is.null(QDA)) {
       return()
     }
-    QDA$Panelista <- as.factor(QDA$Panelista)
-    fviz_pca_biplot(pca_result, label = "var", habillage = QDA$Panelista, addEllipses = TRUE)
+    QDA$Panelist <- as.factor(QDA$Panelist)
+    fviz_pca_biplot(pca_result, label = "var", habillage = QDA$Panelist, addEllipses = TRUE)
   })
   output$EPM <- renderPlot({
     QDA <- datos()
@@ -155,15 +155,15 @@ server <- function(input, output, session){
     if (is.null(pca_result) || is.null(QDA)) {
       return()
     }
-    QDA$Tratamiento <- as.factor(QDA$Tratamiento)
-    fviz_pca_biplot(pca_result, label = "var", habillage = QDA$Tratamiento, addEllipses = FALSE, title = "External Preference Map")
+    QDA$Treatment <- as.factor(QDA$Treatment)
+    fviz_pca_biplot(pca_result, label = "var", habillage = QDA$Treatment, addEllipses = FALSE, title = "External Preference Map")
   })
 
 
   observe({
-    # Verifica si 'datos()' no es NULL
+    # Verify if 'datos()' is NULL
     if (!is.null(datos())) {
-      # Actualiza las opciones del selectInput con los nombres de las Columnas de 'datos()'
+      # Updates the options in selectInput with the names of the columns in 'datos()'
       updateSelectInput(session, "SelectedColumn",
                         choices = colnames(datos()))
     }
@@ -171,43 +171,43 @@ server <- function(input, output, session){
   datos_reactivos <- reactive({
     QDA <- datos()
     if (is.null(QDA)) return()
-    QDA$Panelista <- as.factor(QDA$Panelista)
-    QDA$Tratamiento <- as.factor(QDA$Tratamiento)
+    QDA$Panelist <- as.factor(QDA$Panelist)
+    QDA$Treatment <- as.factor(QDA$Treatment)
     return(QDA)
   })
   observe({
     QDA <- datos_reactivos()
     if (is.null(QDA) || input$SelectedColumn == "") {
-      return()  # Sal si los datos son nulos o no se ha seleccionado ninguna Columna
+      return()
     }
     
-    # Asegúrate de que las Columnas necesarias existan en QDA
-    if (!all(c("Repetición", "Tratamiento", "Panelista", input$SelectedColumn) %in% colnames(QDA))) {
-      return()  # Sal si alguna Columna necesaria no es válida
+    # Ensures that the needed columns exist
+    if (!all(c("Repetition", "Treatment", "Panelist", input$SelectedColumn) %in% colnames(QDA))) {
+      return()
     }
     
-    # Intenta el modelo con sp.plot()
+    # Try the modelwith sp.plot()
     try({
-      modelo <- sp.plot(QDA$Repetición, QDA$Tratamiento, QDA$Panelista, QDA[[input$SelectedColumn]])
-      print(summary(modelo))  # Muestra el resumen en la consola
-    }, silent = TRUE)  # Usa try() para manejar errores potenciales en la construcción del modelo
+      modelo <- sp.plot(QDA$Repetition, QDA$Treatment, QDA$Panelist, QDA[[input$SelectedColumn]])
+      print(summary(modelo))
+    }, silent = TRUE)
   })
   
   output$ANOVA_result <- renderPrint({
     QDA <- datos_reactivos()
     if (is.null(QDA) || input$SelectedColumn == "") {
-      return("No hay datos cargados o no se ha seleccionado una Columna.")
+      return("There are no data or a valid column has not been selected.")
     }
     
-    if (!all(c("Repetición", "Tratamiento", "Panelista", input$SelectedColumn) %in% colnames(QDA))) {
-      return("La Columna seleccionada no es válida.")
+    if (!all(c("Repetition", "Treatment", "Panelist", input$SelectedColumn) %in% colnames(QDA))) {
+      return("The selected column is not valid")
     }
     
     tryCatch({
-      modelo <- sp.plot(QDA$Repetición, QDA$Tratamiento, QDA$Panelista, QDA[[input$SelectedColumn]])
+      modelo <- sp.plot(QDA$Repetition, QDA$Treatment, QDA$Panelist, QDA[[input$SelectedColumn]])
       summary(modelo)
     }, error = function(e) {
-      paste("Error al ajustar el modelo: ", e$message)
+      paste("Error fitting the model: ", e$message)
     })
   })
 
@@ -219,45 +219,44 @@ server <- function(input, output, session){
     }
   })
   
-  # Renderiza los resultados del test LSD
+  # Shows the results of the LSD test
   output$lsdResults <- renderPrint({
     QDA <- datos_reactivos()
     if (is.null(QDA) || input$SelectedColumnComparation == "") {
-      return("No hay datos cargados o no se ha seleccionado una Columna.")
+      return("There are no data or a valid column has not been selected.")
     }
     
     if (!input$SelectedColumnComparation %in% colnames(QDA)) {
-      return("La Columna seleccionada no es válida.")
+      return("The selected column is not valid")
     }
     
-    variable_dependiente <- input$SelectedColumnComparation
+    dependent_variable <- input$SelectedColumnComparation
     
-    # Ajusta el modelo de parcela dividida usando sp.plot
+    # Ajust the split plot model using sp.plot()
     tryCatch({
-      # Asegúrate de tener las Columnas correctas para 'Tratamiento', 'Repetición' y 'Panelista'
-      if (!all(c("Repetición", "Tratamiento", "Panelista") %in% colnames(QDA))) {
-        stop("Las Columnas necesarias no están presentes en el data frame.")
+      if (!all(c("Repetition", "Treatment", "Panelist") %in% colnames(QDA))) {
+        stop("Needed columns arer not present in the data frame.")
       }
       
-      # Aplica sp.plot para obtener el modelo
-      modelo_sp_plot <- sp.plot(QDA$Repetición, QDA$Tratamiento, QDA$Panelista, QDA[[variable_dependiente]])
+      # Applies sp.plot()
+      model_sp_plot <- sp.plot(QDA$Repetition, QDA$Treatment, QDA$Panelist, QDA[[dependent_variable]])
       
-      # Extrae los componentes necesarios para LSD.test
-      DFerror <- modelo_sp_plot$gl.a
-      MSerror <- modelo_sp_plot$Ea
+      # Substract needed coponents to apply LSD.test
+      DFerror <- model_sp_plot$gl.a
+      MSerror <- model_sp_plot$Ea
       
-      # Aplica la prueba de LSD
-      lsd_result <- LSD.test(QDA[[variable_dependiente]], QDA$Tratamiento, DFerror, MSerror, group = TRUE)
+      # Applies LSD test
+      lsd_result <- LSD.test(QDA[[dependent_variable]], QDA$Treatment, DFerror, MSerror, group = TRUE)
       
       # Muestra los resultados de la prueba de LSD
       print(lsd_result)
       
     }, error = function(e) {
-      print(paste("Error al ajustar el modelo o al realizar la comparación de medias:", e$message))
+      print(paste("Error to fit the model or doing mean comparation:", e$message))
     })
   })
   observe({
-    req(datos_reactivos())  # Asegúrate de que los datos están cargados
+    req(datos_reactivos())
     updateSelectInput(session, "SelectedColumnReproducibility", 
                       choices = colnames(datos_reactivos()))
   })
@@ -265,7 +264,7 @@ server <- function(input, output, session){
       
   
   output$Reproducibility <- renderPlot({
-    req(datos_reactivos())  # Asegura que los datos están cargados y que el input está seleccionado
+    req(datos_reactivos())
     if (input$SelectedColumnReproducibility == "") {
       return(NULL)
     }
@@ -276,18 +275,18 @@ server <- function(input, output, session){
     
     
     QDA <- datos_reactivos()
-    QDA$Tratamiento <- as.factor(QDA$Tratamiento)
-    QDA$Panelista <- as.factor(QDA$Panelista)
-    QDA$Repetición <- as.numeric(QDA$Repetición)
-    QDA <- QDA[order(QDA$Panelista, QDA$Tratamiento, QDA$Repetición),]
+    QDA$Treatment <- as.factor(QDA$Treatment)
+    QDA$Panelist <- as.factor(QDA$Panelist)
+    QDA$Repetition <- as.numeric(QDA$Repetition)
+    QDA <- QDA[order(QDA$Panelist, QDA$Treatment, QDA$Repetition),]
     
-    # Gráfico de reproducibilidad
-    xyplot(QDA[[input$SelectedColumnReproducibility]] ~ Tratamiento | Panelista, groups = Repetición, data = QDA, aspect = "xy", type = "o", auto.key = TRUE)
+    # Reproducibility plot
+    xyplot(QDA[[input$SelectedColumnReproducibility]] ~ Treatment | Panelist, groups = Repetition, data = QDA, aspect = "xy", type = "o", auto.key = TRUE)
   })
   
   
   observe({
-    req(datos_reactivos())  # Asegúrate de que los datos están cargados
+    req(datos_reactivos())
     updateSelectInput(session, "SelectedColumnInteraction", 
                       choices = colnames(datos_reactivos()))
   })
@@ -301,50 +300,49 @@ server <- function(input, output, session){
       return(NULL)
     }
     
-    # Asegura que la variable y los factores estén correctamente definidos
-    QDA$Tratamiento <- as.factor(QDA$Tratamiento)
-    QDA$Panelista <- as.factor(QDA$Panelista)
-    QDA$Repetición <- as.numeric(QDA$Repetición)
-    QDA <- QDA[order(QDA$Panelista, QDA$Tratamiento, QDA$Repetición),]
+    QDA$Treatment <- as.factor(QDA$Treatment)
+    QDA$Panelist <- as.factor(QDA$Panelist)
+    QDA$Repetition <- as.numeric(QDA$Repetition)
+    QDA <- QDA[order(QDA$Panelist, QDA$Treatment, QDA$Repetition),]
     
-    # Calcula la media por panelista y tratamiento usando la variable seleccionada
-    media_panelista <- QDA %>%
-      group_by(Panelista, Tratamiento) %>%
-      summarise(MediaPanelista = mean(.data[[input$SelectedColumnInteraction]], na.rm = TRUE), .groups = 'drop')
-    media_panelista$Calificación <- 'Juez'
+    # Calculate mean by Panelist and Treatment using the selected column
+    mean_Panelist <- QDA %>%
+      group_by(Panelist, Treatment) %>%
+      summarise(meanPanelist = mean(.data[[input$SelectedColumnInteraction]], na.rm = TRUE), .groups = 'drop')
+    mean_Panelist$AsignValue <- 'Panelist'
     
-    # Calcula la media global para cada tratamiento y replica las medias por panelista
-    medias <- media_panelista %>%
-      group_by(Tratamiento) %>%
-      summarise(MediaPanelista = mean(MediaPanelista)) %>%
-      slice(rep(1:n(), each = n_distinct(media_panelista$Panelista)))
-    medias$Calificación <- 'Media'
-    medias$Panelista <- rep(unique(media_panelista$Panelista), times = nrow(medias) / length(unique(media_panelista$Panelista)))
+    # Calculate global mean for each Treatment y duplicates means for each Panelist
+    means <- mean_Panelist %>%
+      group_by(Treatment) %>%
+      summarise(meanPanelist = mean(meanPanelist)) %>%
+      slice(rep(1:n(), each = n_distinct(mean_Panelist$Panelist)))
+    means$AsignValue <- 'mean'
+    means$Panelist <- rep(unique(mean_Panelist$Panelist), times = nrow(means) / length(unique(mean_Panelist$Panelist)))
     
-    # Crea el dataframe final
-    df_final <- bind_rows(media_panelista, medias) %>%
-      arrange(Panelista, Tratamiento, desc(Calificación))
+    # Create the final dataframe
+    df_final <- bind_rows(mean_Panelist, means) %>%
+      arrange(Panelist, Treatment, desc(AsignValue))
     
-    # Genera el gráfico
-    with(df_final, xyplot(MediaPanelista ~ Tratamiento | Panelista, groups = Calificación, aspect = "xy", type = "o", auto.key = TRUE))
+    # Create the plot
+    with(df_final, xyplot(meanPanelist ~ Treatment | Panelist, groups = AsignValue, aspect = "xy", type = "o", auto.key = TRUE))
   })
   
   
-  # Crear el gráfico radial
+  # Create the radial plot
   output$radialPlot <- renderHighchart({
-    req(datos())  # Asegurarse de que los datos están cargados
+    req(datos())
     QDA <- datos()
     
     QDA_means <- QDA %>%
-      select(-Panelista, -Repetición) %>%
-      group_by(Tratamiento) %>%
+      select(-Panelist, -Repetition) %>%
+      group_by(Treatment) %>%
       summarise_all(mean, na.rm = TRUE) %>%
       ungroup()
     
     QDA_means <- as.data.frame(QDA_means)
     
     QDA_transposed <- as.data.frame(t(QDA_means[-1]))
-    colnames(QDA_transposed) <- QDA_means$Tratamiento
+    colnames(QDA_transposed) <- QDA_means$Treatment
     
     QDA_for_chart <- data.frame(Attribute = rownames(QDA_transposed), QDA_transposed)
     rownames(QDA_for_chart) <- NULL
@@ -355,7 +353,6 @@ server <- function(input, output, session){
       hc_xAxis(categories = QDA_for_chart$Attribute, tickmarkPlacement = 'on', lineWidth = 0) %>%
       hc_yAxis(gridLineInterpolation = 'polygon', lineWidth = 0, min = 0)
     
-    # Añadir dinámicamente las series de tratamientos
     for(treatment in colnames(QDA_transposed)) {
       hc <- hc %>% hc_add_series(data = QDA_transposed[[treatment]], name = treatment)
     }
