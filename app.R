@@ -1,4 +1,5 @@
 library(shiny)
+library(shinyWidgets)
 library(readxl)
 library(FactoMineR)
 library(factoextra)
@@ -55,12 +56,22 @@ ui <- fluidPage(
              plotOutput("Reproducibility")
     ),
     tabPanel("Interaction Graphs",
-             selectInput("SelectedColumnInteraction",
-                         "Select an atribute:",
-                         choices = NULL),
-             checkboxGroupInput("ExcludePanelists",
-                                "Exclude Panelists:",
-                                choices = NULL),
+             fluidRow(
+               column(6, selectInput("SelectedColumnInteraction",
+                                     "Select an attribute:",
+                                     choices = NULL)
+               ),
+               column(6, pickerInput(
+                 inputId = "ExcludePanelists",
+                 label = "Exclude Panelists:",
+                 choices = NULL,
+                 multiple = TRUE,
+                 options = list(
+                   `actions-box` = TRUE,
+                   `live-search` = TRUE
+                 )
+               ))
+             ),
              plotOutput("Interaction")),
     
     tabPanel("Radial Graph",
@@ -108,9 +119,9 @@ server <- function(input, output, session){
   observe({
     QDA <- datos()
     if (!is.null(QDA)) {
-      updateCheckboxGroupInput(session, "ExcludePanelists",
-                               choices = unique(QDA$Panelist),
-                               selected = NULL)
+      updatePickerInput(session, "ExcludePanelists",
+                        choices = unique(QDA$Panelist),
+                        selected = NULL)
     }
   })
   
