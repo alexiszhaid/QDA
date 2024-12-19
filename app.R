@@ -58,6 +58,9 @@ ui <- fluidPage(
              selectInput("SelectedColumnInteraction",
                          "Select an atribute:",
                          choices = NULL),
+             checkboxGroupInput("ExcludePanelists",
+                                "Exclude Panelists:",
+                                choices = NULL),
              plotOutput("Interaction")),
     
     tabPanel("Radial Graph",
@@ -79,12 +82,44 @@ server <- function(input, output, session){
     return(QDA)
   })
   
+  datos_reactivos <- reactive({
+    QDA <- datos()
+    if (is.null(QDA)) return(NULL)
+    QDA$Panelist <- as.factor(QDA$Panelist)
+    QDA$Treatment <- as.factor(QDA$Treatment)
+    if (!is.null(input$ExcludePanelists)) {
+      QDA <- QDA[!QDA$Panelist %in% input$ExcludePanelists, ]
+    }
+    return(QDA)
+  })
+  
+  observe({
+    QDA <- datos_reactivos()
+    if (!is.null(QDA)) {
+      updateSelectInput(session, "SelectedColumn",
+                        choices = colnames(QDA))
+      updateSelectInput(session, "SelectedColumnInteraction",
+                        choices = colnames(QDA))
+      updateSelectInput(session, "SelectedColumnComparison",
+                        choices = colnames(QDA))
+    }
+  })
+  
+  observe({
+    QDA <- datos()
+    if (!is.null(QDA)) {
+      updateCheckboxGroupInput(session, "ExcludePanelists",
+                               choices = unique(QDA$Panelist),
+                               selected = NULL)
+    }
+  })
+  
   output$miTable <- renderDataTable({
-    datos() 
+    datos_reactivos() 
   })
   
   Correlation <- reactive({
-    QDA <- datos()
+    QDA <- datos_reactivos()
     if (is.null(QDA)) {
       return()
     }
@@ -98,7 +133,7 @@ server <- function(input, output, session){
   })
   
   PCAresults <- reactive({
-    QDA <- datos()
+    QDA <- datos_reactivos()
     if (is.null(QDA)) {
       return(NULL)
     }
@@ -125,7 +160,7 @@ server <- function(input, output, session){
   })
   
   res.pca <- reactive({
-    QDA <- datos()
+    QDA <- datos_reactivos()
     if (is.null(QDA)) {
       return(NULL)
     }
@@ -141,7 +176,7 @@ server <- function(input, output, session){
     fviz_eig(pca_result,title = "EigbarPlot")
   })
   output$Biplot <- renderPlot({
-    QDA <- datos()
+    QDA <- datos_reactivos()
     pca_result <- res.pca()
     if (is.null(pca_result) || is.null(QDA)) {
       return()
@@ -150,7 +185,7 @@ server <- function(input, output, session){
     fviz_pca_biplot(pca_result, label = "var", habillage = QDA$Panelist, addEllipses = TRUE)
   })
   output$EPM <- renderPlot({
-    QDA <- datos()
+    QDA <- datos_reactivos()
     pca_result <- res.pca()
     if (is.null(pca_result) || is.null(QDA)) {
       return()
@@ -161,22 +196,22 @@ server <- function(input, output, session){
 
 
   observe({
-    # Verify if 'datos()' is NULL
-    if (!is.null(datos())) {
-      # Updates the options in selectInput with the names of the columns in 'datos()'
+    # Verify if 'datos_reactivos()' is NULL
+    if (!is.null(datos_reactivos())) {
+      # Updates the options in selectInput with the names of the columns in 'datos_reactivos()'
       updateSelectInput(session, "SelectedColumn",
-                        choices = colnames(datos()))
+                        choices = colnames(datos_reactivos()))
     }
   })
-  datos_reactivos <- reactive({
-    QDA <- datos()
+  datos_reactivos2 <- reactive({
+    QDA <- datos_reactivos()
     if (is.null(QDA)) return()
     QDA$Panelist <- as.factor(QDA$Panelist)
     QDA$Treatment <- as.factor(QDA$Treatment)
     return(QDA)
   })
   observe({
-    QDA <- datos_reactivos()
+    QDA <- datos_reactivos2()
     if (is.null(QDA) || input$SelectedColumn == "") {
       return()
     }
@@ -194,7 +229,7 @@ server <- function(input, output, session){
   })
   
   output$ANOVA_result <- renderPrint({
-    QDA <- datos_reactivos()
+    QDA <- datos_reactivos2()
     if (is.null(QDA) || input$SelectedColumn == "") {
       return("There are no data or a valid column has not been selected.")
     }
@@ -213,15 +248,15 @@ server <- function(input, output, session){
 
 
   observe({
-    if (!is.null(datos())) {
+    if (!is.null(datos_reactivos())) {
       updateSelectInput(session, "SelectedColumnComparation",
-                        choices = colnames(datos()))
+                        choices = colnames(datos_reactivos()))
     }
   })
   
   # Shows the results of the LSD test
   output$lsdResults <- renderPrint({
-    QDA <- datos_reactivos()
+    QDA <- datos_reactivos2()
     if (is.null(QDA) || input$SelectedColumnComparation == "") {
       return("There are no data or a valid column has not been selected.")
     }
@@ -256,25 +291,25 @@ server <- function(input, output, session){
     })
   })
   observe({
-    req(datos_reactivos())
+    req(datos_reactivos2())
     updateSelectInput(session, "SelectedColumnReproducibility", 
-                      choices = colnames(datos_reactivos()))
+                      choices = colnames(datos_reactivos2()))
   })
 
       
   
   output$Reproducibility <- renderPlot({
-    req(datos_reactivos())
+    req(datos_reactivos2())
     if (input$SelectedColumnReproducibility == "") {
       return(NULL)
     }
     
-    if (!input$SelectedColumnReproducibility %in% colnames(datos_reactivos())) {
+    if (!input$SelectedColumnReproducibility %in% colnames(datos_reactivos2())) {
       return(NULL)
     }
     
     
-    QDA <- datos_reactivos()
+    QDA <- datos_reactivos2()
     QDA$Treatment <- as.factor(QDA$Treatment)
     QDA$Panelist <- as.factor(QDA$Panelist)
     QDA$Repetition <- as.numeric(QDA$Repetition)
@@ -286,16 +321,16 @@ server <- function(input, output, session){
   
   
   observe({
-    req(datos_reactivos())
+    req(datos_reactivos2())
     updateSelectInput(session, "SelectedColumnInteraction", 
-                      choices = colnames(datos_reactivos()))
+                      choices = colnames(datos_reactivos2()))
   })
   
   
   
   output$Interaction <- renderPlot({
-    req(datos_reactivos())
-    QDA <- datos_reactivos()
+    req(datos_reactivos2())
+    QDA <- datos_reactivos2()
     if (!input$SelectedColumnInteraction %in% colnames(QDA)) {
       return(NULL)
     }
@@ -330,8 +365,8 @@ server <- function(input, output, session){
   
   # Create the radial plot
   output$radialPlot <- renderHighchart({
-    req(datos())
-    QDA <- datos()
+    req(datos_reactivos())
+    QDA <- datos_reactivos()
     
     QDA_means <- QDA %>%
       select(-Panelist, -Repetition) %>%
