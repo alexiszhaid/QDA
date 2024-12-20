@@ -88,6 +88,9 @@ ui <- fluidPage(
 
 
 server <- function(input, output, session){
+
+# Input file section ------------------------------------------------------
+
   datos <- reactive({
     inFile <- input$file1
     if (is.null(inFile)) {
@@ -110,7 +113,9 @@ server <- function(input, output, session){
     }
     return(QDA)
   })
-  
+
+# Select and picker inputs ------------------------------------------------
+
   observe({
     QDA <- datos_reactivos()
     if (!is.null(QDA)) {
@@ -143,11 +148,16 @@ server <- function(input, output, session){
       )
     }
   })
-  
+
+# Shows data --------------------------------------------------------------
+
   output$miTable <- renderDataTable({
     datos_reactivos() 
   })
-  
+
+
+# Correlation matrix ------------------------------------------------------
+
   Correlation <- reactive({
     QDA <- datos_reactivos()
     if (is.null(QDA)) {
@@ -161,7 +171,9 @@ server <- function(input, output, session){
   output$'Correlation Matrix' <- renderDataTable({
     Correlation()
   })
-  
+
+# Eigenvalues calculation -------------------------------------------------
+
   PCAresults <- reactive({
     QDA <- datos_reactivos()
     if (is.null(QDA)) {
@@ -188,7 +200,9 @@ server <- function(input, output, session){
     eigenvectors <- res.pca$var$coord
     return(eigenvectors)
   })
-  
+
+# PCA graphs --------------------------------------------------------------
+
   res.pca <- reactive({
     QDA <- datos_reactivos()
     if (is.null(QDA)) {
@@ -210,16 +224,13 @@ server <- function(input, output, session){
     QDA <- datos_reactivos()
     if (is.null(QDA)) return(NULL)
     
-    # Filtrar por tratamiento seleccionado si aplica
     selected_treatment <- input$SelectTreatmentForBiplot
     if (!is.null(selected_treatment)) {
       QDA <- QDA[QDA$Treatment == selected_treatment, ]
     }
     
-    # Verificar que queden datos suficientes para realizar el PCA
     if (nrow(QDA) == 0) return(NULL)
     
-    # Recalcular PCA con los datos filtrados
     PCA(QDA[, sapply(QDA, is.numeric)], graph = FALSE)
   })
   
@@ -233,7 +244,6 @@ server <- function(input, output, session){
       QDA <- QDA[QDA$Treatment == selected_treatment, ]
     }
     
-    # Asegurar que los niveles de Panelist sean consistentes
     QDA$Panelist <- droplevels(as.factor(QDA$Panelist))
     
     fviz_pca_biplot(
@@ -244,7 +254,9 @@ server <- function(input, output, session){
       title = paste("Biplot for Treatment:", selected_treatment)
     )
   })
-  
+
+# External preference map -------------------------------------------------
+
     output$EPM <- renderPlot({
     QDA <- datos_reactivos()
     pca_result <- res.pca()
@@ -255,6 +267,8 @@ server <- function(input, output, session){
     fviz_pca_biplot(pca_result, label = "var", habillage = QDA$Treatment, addEllipses = FALSE, title = "External Preference Map")
   })
 
+
+# ANOVA -------------------------------------------------------------------
 
   observe({
     # Verify if 'datos_reactivos()' is NULL
@@ -308,6 +322,9 @@ server <- function(input, output, session){
   })
 
 
+# LSD ---------------------------------------------------------------------
+
+
   observe({
     if (!is.null(datos_reactivos())) {
       updateSelectInput(session, "SelectedColumnComparation",
@@ -351,13 +368,15 @@ server <- function(input, output, session){
       print(paste("Error to fit the model or doing mean comparation:", e$message))
     })
   })
-  observe({
+
+# Reproducibility Graphs --------------------------------------------------
+
+   observe({
     req(datos_reactivos2())
     updateSelectInput(session, "SelectedColumnReproducibility", 
                       choices = colnames(datos_reactivos2()))
   })
 
-      
   
   output$Reproducibility <- renderPlot({
     req(datos_reactivos2())
@@ -380,7 +399,9 @@ server <- function(input, output, session){
     xyplot(QDA[[input$SelectedColumnReproducibility]] ~ Treatment | Panelist, groups = Repetition, data = QDA, aspect = "xy", type = "o", auto.key = TRUE)
   })
   
-  
+
+# Interaction graphs ------------------------------------------------------
+
   observe({
     req(datos_reactivos2())
     updateSelectInput(session, "SelectedColumnInteraction", 
@@ -423,7 +444,9 @@ server <- function(input, output, session){
     with(df_final, xyplot(meanPanelist ~ Treatment | Panelist, groups = AsignValue, aspect = "xy", type = "o", auto.key = TRUE))
   })
   
-  
+
+# Radial plot -------------------------------------------------------------
+
   # Create the radial plot
   output$radialPlot <- renderHighchart({
     req(datos_reactivos())
