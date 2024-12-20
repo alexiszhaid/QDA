@@ -29,13 +29,18 @@ ui <- fluidPage(
                dataTableOutput("TableEigenvectors")
              )),
     tabPanel("Graphs", 
-             fluidRow(
-               column(12, plotOutput("Variance"))
+             plotOutput("Variance"),
+             pickerInput(
+               inputId = "SelectTreatmentForBiplot",
+               label = "Select a Treatment:",
+               choices = NULL,
+               multiple = FALSE,
+               options = list(
+                 `actions-box` = TRUE,
+                 `live-search` = TRUE
+               )
              ),
-             fluidRow(
-               column(6, plotOutput("Biplot")),
-               column(6, plotOutput("EPM"))
-             )
+             plotOutput("Biplot")
     ),
     tabPanel("ANOVA",
              selectInput("SelectedColumn",
@@ -75,7 +80,9 @@ ui <- fluidPage(
              plotOutput("Interaction")),
     
     tabPanel("Radial Graph",
-             highchartOutput("radialPlot"))
+             highchartOutput("radialPlot")),
+    tabPanel("EPM",
+             plotOutput("EPM"))
   )
 )
 
@@ -122,6 +129,18 @@ server <- function(input, output, session){
       updatePickerInput(session, "ExcludePanelists",
                         choices = unique(QDA$Panelist),
                         selected = NULL)
+    }
+  })
+  
+  observe({
+    QDA <- datos_reactivos()
+    if (!is.null(QDA)) {
+      updatePickerInput(
+        session,
+        inputId = "SelectTreatmentForBiplot",
+        choices = unique(QDA$Treatment),
+        selected = unique(QDA$Treatment)[1] # Selección predeterminada
+      )
     }
   })
   
@@ -186,16 +205,47 @@ server <- function(input, output, session){
     }
     fviz_eig(pca_result,title = "EigbarPlot")
   })
-  output$Biplot <- renderPlot({
+  
+  filtered_pca <- reactive({
     QDA <- datos_reactivos()
-    pca_result <- res.pca()
-    if (is.null(pca_result) || is.null(QDA)) {
-      return()
+    if (is.null(QDA)) return(NULL)
+    
+    # Filtrar por tratamiento seleccionado si aplica
+    selected_treatment <- input$SelectTreatmentForBiplot
+    if (!is.null(selected_treatment)) {
+      QDA <- QDA[QDA$Treatment == selected_treatment, ]
     }
-    QDA$Panelist <- as.factor(QDA$Panelist)
-    fviz_pca_biplot(pca_result, label = "var", habillage = QDA$Panelist, addEllipses = TRUE)
+    
+    # Verificar que queden datos suficientes para realizar el PCA
+    if (nrow(QDA) == 0) return(NULL)
+    
+    # Recalcular PCA con los datos filtrados
+    PCA(QDA[, sapply(QDA, is.numeric)], graph = FALSE)
   })
-  output$EPM <- renderPlot({
+  
+  output$Biplot <- renderPlot({
+    pca_result <- filtered_pca()
+    if (is.null(pca_result)) return(NULL)
+    
+    QDA <- datos_reactivos()
+    selected_treatment <- input$SelectTreatmentForBiplot
+    if (!is.null(selected_treatment)) {
+      QDA <- QDA[QDA$Treatment == selected_treatment, ]
+    }
+    
+    # Asegurar que los niveles de Panelist sean consistentes
+    QDA$Panelist <- droplevels(as.factor(QDA$Panelist))
+    
+    fviz_pca_biplot(
+      pca_result,
+      label = "var",
+      habillage = QDA$Panelist,
+      addEllipses = TRUE,
+      title = paste("Biplot for Treatment:", selected_treatment)
+    )
+  })
+  
+    output$EPM <- renderPlot({
     QDA <- datos_reactivos()
     pca_result <- res.pca()
     if (is.null(pca_result) || is.null(QDA)) {
