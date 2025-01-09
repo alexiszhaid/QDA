@@ -27,9 +27,12 @@ ui <- fluidPage(
              ),
              fluidRow(
                dataTableOutput("TableEigenvectors")
-             )),
-    tabPanel("Graphs", 
-             plotOutput("Variance"),
+              ),
+             fluidRow(
+               plotOutput("Variance")
+             )
+      ),
+    tabPanel("Biplots",
              pickerInput(
                inputId = "SelectTreatmentForBiplot",
                label = "Select a Treatment:",
@@ -348,7 +351,7 @@ server <- function(input, output, session){
     # Ajust the split plot model using sp.plot()
     tryCatch({
       if (!all(c("Repetition", "Treatment", "Panelist") %in% colnames(QDA))) {
-        stop("Needed columns arer not present in the data frame.")
+        stop("Needed columns are not present in the data frame.")
       }
       
       # Applies sp.plot()
