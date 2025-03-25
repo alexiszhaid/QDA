@@ -7,6 +7,9 @@ github: "https://github.com/alexiszhaid"
 output: html_document
 ---
 
+You can access the full Shiny application and source code on GitHub:
+
+[👉 View the project on GitHub](https://github.com/alexiszhaid/QDA)
 # Abstract
 
 This paper presents a novel R Shiny application developed to simplify and enhance the statistical analysis of sensory data obtained through Quantitative Descriptive Analysis (QDA). QDA, a widely-used sensory evaluation method, generates complex datasets that require extensive statistical processing. Our Shiny-based application integrates multiple statistical techniques into an intuitive user interface, streamlining processes such as Principal Component Analysis (PCA), Analysis of Variance (ANOVA) with appropriate post hoc tests, correlation matrix exploration, reproducibility assessment, and preference mapping. The application facilitates dynamic interactions through widgets (pickerInput, selectInput) allowing real-time customization of analyses based on user-defined parameters such as panelists, treatments, and sensory attributes. By offering comprehensive visualization tools (e.g., biplots, radial plots, interaction plots), the application significantly reduces the barrier to entry for non-statisticians and promotes reproducible research within the sensory science community. We discuss the design, functionality, technical decisions, and practical advantages of this software, providing reproducible examples that illustrate its usability in real-world scenarios.
