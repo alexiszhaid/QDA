@@ -111,6 +111,7 @@ server <- function(input, output, session){
     if (is.null(QDA)) return(NULL)
     QDA$Panelist <- as.factor(QDA$Panelist)
     QDA$Treatment <- as.factor(QDA$Treatment)
+    QDA$Repetition <- as.factor(QDA$Repetition)
     if (!is.null(input$ExcludePanelists)) {
       QDA <- QDA[!QDA$Panelist %in% input$ExcludePanelists, ]
     }
@@ -147,7 +148,7 @@ server <- function(input, output, session){
         session,
         inputId = "SelectTreatmentForBiplot",
         choices = unique(QDA$Treatment),
-        selected = unique(QDA$Treatment)[1] # Selección predeterminada
+        selected = unique(QDA$Treatment)[1]
       )
     }
   })
@@ -364,7 +365,7 @@ server <- function(input, output, session){
       # Applies LSD test
       lsd_result <- LSD.test(QDA[[dependent_variable]], QDA$Treatment, DFerror, MSerror, group = TRUE)
       
-      # Muestra los resultados de la prueba de LSD
+      # Shows LSD results
       print(lsd_result)
       
     }, error = function(e) {
@@ -426,21 +427,21 @@ server <- function(input, output, session){
     QDA <- QDA[order(QDA$Panelist, QDA$Treatment, QDA$Repetition),]
     
     # Calculate mean by Panelist and Treatment using the selected column
-    mean_Panelist <- QDA %>%
-      group_by(Panelist, Treatment) %>%
+    mean_Panelist <- QDA |> 
+      group_by(Panelist, Treatment) |> 
       summarise(meanPanelist = mean(.data[[input$SelectedColumnInteraction]], na.rm = TRUE), .groups = 'drop')
     mean_Panelist$AsignValue <- 'Panelist'
     
     # Calculate global mean for each Treatment y duplicates means for each Panelist
-    means <- mean_Panelist %>%
-      group_by(Treatment) %>%
-      summarise(meanPanelist = mean(meanPanelist)) %>%
+    means <- mean_Panelist |> 
+      group_by(Treatment) |>
+      summarise(meanPanelist = mean(meanPanelist)) |>
       slice(rep(1:n(), each = n_distinct(mean_Panelist$Panelist)))
     means$AsignValue <- 'mean'
     means$Panelist <- rep(unique(mean_Panelist$Panelist), times = nrow(means) / length(unique(mean_Panelist$Panelist)))
     
     # Create the final dataframe
-    df_final <- bind_rows(mean_Panelist, means) %>%
+    df_final <- bind_rows(mean_Panelist, means) |>
       arrange(Panelist, Treatment, desc(AsignValue))
     
     # Create the plot
@@ -455,10 +456,10 @@ server <- function(input, output, session){
     req(datos_reactivos())
     QDA <- datos_reactivos()
     
-    QDA_means <- QDA %>%
-      select(-Panelist, -Repetition) %>%
-      group_by(Treatment) %>%
-      summarise_all(mean, na.rm = TRUE) %>%
+    QDA_means <- QDA |>
+      select(-Panelist, -Repetition) |>
+      group_by(Treatment) |>
+      summarise_all(mean, na.rm = TRUE) |>
       ungroup()
     
     QDA_means <- as.data.frame(QDA_means)
@@ -469,17 +470,17 @@ server <- function(input, output, session){
     QDA_for_chart <- data.frame(Attribute = rownames(QDA_transposed), QDA_transposed)
     rownames(QDA_for_chart) <- NULL
     
-    hc <- hchart(QDA_for_chart, type = "line", hcaes(x = Attribute)) %>%
-      hc_chart(polar = TRUE) %>%
-      hc_title(text = "Radial plot") %>%
-      hc_xAxis(categories = QDA_for_chart$Attribute, tickmarkPlacement = 'on', lineWidth = 0) %>%
+    hc <- hchart(QDA_for_chart, type = "line", hcaes(x = Attribute)) |>
+      hc_chart(polar = TRUE) |>
+      hc_title(text = "Radial plot") |>
+      hc_xAxis(categories = QDA_for_chart$Attribute, tickmarkPlacement = 'on', lineWidth = 0) |>
       hc_yAxis(gridLineInterpolation = 'polygon', lineWidth = 0, min = 0)
     
     for(treatment in colnames(QDA_transposed)) {
-      hc <- hc %>% hc_add_series(data = QDA_transposed[[treatment]], name = treatment)
+      hc <- hc |> hc_add_series(data = QDA_transposed[[treatment]], name = treatment)
     }
     
-    hc %>% hc_tooltip(shared = TRUE, pointFormat = '<span style="color:{series.color}">{series.name}: <b>{point.y:.2f}</b><br/>')
+    hc |> hc_tooltip(shared = TRUE, pointFormat = '<span style="color:{series.color}">{series.name}: <b>{point.y:.2f}</b><br/>')
     
     return(hc)
   })

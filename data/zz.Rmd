@@ -1,0 +1,563 @@
+---
+title: "Simplifying Sensory Data Analysis: A Shiny Application for Quantitative Descriptive Analysis (QDA) in R"
+author: "Alexis Zhaid Carrillo-García"
+affiliation: "Departamento de Ingeniería Agroindustrial, Universidad Autónoma Chapingo, México"
+email: "alexiszcg@gmail.com"
+orcid: "https://orcid.org/0000-0003-0593-4657"
+output: html_document
+---
+
+# Abstract
+
+This paper presents a novel R Shiny application developed to simplify and enhance the statistical analysis of sensory data obtained through Quantitative Descriptive Analysis (QDA). QDA, a widely-used sensory evaluation method, generates complex datasets that require extensive statistical processing. Our Shiny-based application integrates multiple statistical techniques into an intuitive user interface, streamlining processes such as Principal Component Analysis (PCA), Analysis of Variance (ANOVA) with appropriate post hoc tests, correlation matrix exploration, reproducibility assessment, and preference mapping. The application facilitates dynamic interactions through widgets (pickerInput, selectInput) allowing real-time customization of analyses based on user-defined parameters such as panelists, treatments, and sensory attributes. By offering comprehensive visualization tools (e.g., biplots, radial plots, interaction plots), the application significantly reduces the barrier to entry for non-statisticians and promotes reproducible research within the sensory science community. We discuss the design, functionality, technical decisions, and practical advantages of this software, providing reproducible examples that illustrate its usability in real-world scenarios.
+
+**Keywords:** Quantitative Descriptive Analysis, Sensory Evaluation, R Shiny, Statistical Analysis, Data Visualization
+
+# Introduction
+
+Quantitative Descriptive Analysis (QDA®) is a sensory evaluation method developed in the early 1970s by Tragon Corporation in collaboration with the Department of Food Science at the University of California, Davis (Stone *et al.*, 1974). It emerged as a response to the limitations of earlier descriptive methods, such as the Flavor Profile Method, which lacked robust statistical treatment of sensory data (Meilgaard, Civille, & Carr, 2007).
+
+Unlike traditional methods, QDA emphasizes panelist independence in evaluations, aiming to reduce bias and ensure objectivity. At its core, QDA is characterized by a statistical and systematic approach to sensory evaluation, where trained panelists evaluate products based on predefined sensory attributes (Meilgaard *et al.*, 2007).
+
+Sensory data collected through QDA typically require sophisticated statistical analyses to uncover meaningful patterns, relationships, and differences among products. Common statistical techniques include correlation matrices, Principal Component Analysis (PCA), Analysis of Variance (ANOVA), and interaction analyses, each contributing uniquely to understanding product sensory profiles and guiding data-driven decisions in product development (Bartholomew, 2010; Greenacre *et al.*, 2022).
+
+Despite its effectiveness, QDA can be challenging due to the complexity of statistical analyses required, particularly for researchers without strong statistical backgrounds. Existing tools such as the SensoMineR package, although valuable, may not fully address practical issues such as error variance management and detailed interaction detection inherent in complex experimental designs (Hernandéz-Montes, 2016).
+
+To address these limitations, we introduce a comprehensive R Shiny application explicitly designed to streamline QDA data analysis. Our application integrates advanced statistical methodologies within an interactive and user-friendly interface, enabling users to conduct sophisticated analyses and visualize results effectively. This tool simplifies tasks like PCA, ANOVA, reproducibility analyses, and preference mapping without extensive coding knowledge, thus empowering sensory scientists and enhancing reproducibility and transparency in sensory research.
+
+# Data Input and Pre-processing
+
+The Shiny-based sensory analysis application begins its workflow with a data upload stage, where users can input sensory datasets for analysis. Proper data structuring and pre-processing are critical to ensure accurate statistical results and meaningful visualizations.
+
+## Data Format and Structure
+
+The application accepts datasets in Excel format (.xlsx). Each dataset must adhere to a predefined structure to ensure compatibility with the statistical functions integrated into the application:
+
+- **Rows**: Represent individual observations or evaluations.
+- **Columns**: Include the following key variables:
+
+| Column Name | Description |
+|-------------|-------------|
+| Panelist    | Identifies the individual evaluating the sample. |
+| Treatment   | Represents different experimental conditions or product variations. |
+| Repetition  | Tracks repeated evaluations for reproducibility analysis. |
+| Attributes  | Numerical scores evaluating sensory attributes such as taste, aroma, and texture. Columns after 'Repetition' will be treated as attributes, and must have unique names without spaces or special characters. |
+
+## Data Upload
+
+- Users upload datasets through the fileInput widget on the UI.
+- The uploaded file is read and processed using the readxl package.
+- Panelists and treatments are converted into factors, ensuring compatibility with subsequent statistical models.
+
+Proper data input and pre-processing are essential steps in sensory data analysis, ensuring data quality and reliability for subsequent statistical evaluations. Our Shiny application streamlines these initial steps through an automated yet customizable interface.
+
+Upon uploading sensory datasets, the application performs several automated preprocessing tasks, including:
+
+- Conversion of categorical variables such as panelists, treatments, and repetitions into factor data types.
+- Validation and numeric verification for sensory attribute columns.
+
+Below is an illustrative example demonstrating the pre-processing workflow in R:
+
+```{r, eval=FALSE}
+# Load required libraries
+library(readxl)
+library(dplyr)
+
+# Import data
+QDA <- read_excel("path_to_your_file.xlsx")
+
+# Convert necessary columns to factors
+QDA$Panelist <- as.factor(QDA$Panelist)
+QDA$Treatment <- as.factor(QDA$Treatment)
+QDA$Repetition <- as.factor(QDA$Repetition)
+
+# Validate numeric attributes
+num_data <- QDA[, sapply(QDA, is.numeric)]
+
+# Preview cleaned data
+output$miTable <- renderDataTable({
+    datos_reactivos() 
+  })
+```
+
+To enhance user interaction, our application dynamically updates data views based on user-driven filters or selections, allowing immediate feedback and adjustments before further statistical analyses.
+
+
+# Statistical Analyses Workflow
+
+Once data is pre-processed, the application enables a complete analytical workflow that guides users through key steps in sensory data analysis:
+
+## Correlation Matrix
+Correlation matrices help identify relationships among sensory attributes.
+
+```{r, eval=FALSE}
+num_data <- QDA[, sapply(QDA, is.numeric)]
+cor_matrix <- cor(num_data)
+return(cor_matrix)
+```
+
+## Principal Component Analysis (PCA)
+PCA is used to reduce dimensionality and explore data structure visually.
+
+```{r, eval=FALSE}
+library(FactoMineR)
+library(factoextra)
+res.pca <- PCA(QDA[, sapply(QDA, is.numeric)], graph = FALSE)
+renderDataTable({
+    res.pca <- PCAresults()
+    if (is.null(res.pca)) {
+      return()
+    }
+    eigenvalues <- get_eigenvalue(res.pca)
+    return(eigenvalues)
+  })
+  
+renderDataTable({
+    res.pca <- PCAresults()
+    if (is.null(res.pca)) {
+      return()
+    }
+    eigenvectors <- res.pca$var$coord
+    return(eigenvectors)
+  })
+  
+output$Biplot <- renderPlot({
+    pca_result <- filtered_pca()
+    if (is.null(pca_result)) return(NULL)
+fviz_pca_biplot(
+      pca_result,
+      label = "var",
+      habillage = QDA$Panelist,
+      addEllipses = TRUE,
+      title = paste("Biplot for Treatment:", selected_treatment)
+    )
+  })
+```
+
+## Analysis of Variance (ANOVA)
+ANOVA tests whether mean attribute ratings differ significantly across treatments.
+
+```{r, eval=FALSE}
+library(agricolae)
+modelo <- sp.plot(QDA$Repetition, QDA$Treatment, QDA$Panelist, QDA[[input$SelectedColumn]])
+print(summary(modelo))
+```
+
+## Post Hoc Tests (LSD)
+Post hoc tests such as LSD help pinpoint which treatments differ.
+
+```{r, eval=FALSE}
+library(agricolae)
+model_sp_plot <- sp.plot(QDA$Repetition, QDA$Treatment, QDA$Panelist, QDA[[dependent_variable]])
+
+DFerror <- model_sp_plot$gl.a
+MSerror <- model_sp_plot$Ea
+      
+lsd_result <- LSD.test(QDA[[dependent_variable]], QDA$Treatment, DFerror, MSerror, group = TRUE)
+
+print(lsd_result)
+```
+
+## Reproducibility Analysis
+Graphs allow assessing the consistency of panelist evaluations across repetitions.
+
+```{r, eval=FALSE}
+library(lattice)
+xyplot(QDA[[input$SelectedColumnReproducibility]] ~ Treatment | Panelist, groups = Repetition, data = QDA, aspect = "xy", type = "o", auto.key = TRUE)
+```
+
+## Interaction Plots
+Interaction plots show how individual panelist responses vary across treatments.
+
+```{r, eval=FALSE}
+with(df_final, xyplot(meanPanelist ~ Treatment | Panelist, groups = AsignValue, aspect = "xy", type = "o", auto.key = TRUE))
+```
+
+## Preference Mapping
+PCA is used again to generate external preference maps, visualizing how treatments align with sensory profiles.
+
+```{r, eval=FALSE}
+fviz_pca_biplot(pca_result, label = "var", habillage = QDA$Treatment, addEllipses = FALSE, title = "External Preference Map")
+```
+
+This workflow offers an intuitive, reproducible path from raw sensory input to deep analytical insight, tailored to the needs of QDA practitioners.
+
+## Radial Plot
+Radial plots are useful for visualizing the average intensity of multiple attributes for each treatment in a circular layout.
+
+```{r, eval=FALSE}
+library(highcharter)
+library(dplyr)
+
+QDA_means <- QDA |>
+      select(-Panelist, -Repetition) |>
+      group_by(Treatment) |>
+      summarise_all(mean, na.rm = TRUE) |>
+      ungroup()
+    
+    QDA_means <- as.data.frame(QDA_means)
+    
+    QDA_transposed <- as.data.frame(t(QDA_means[-1]))
+    colnames(QDA_transposed) <- QDA_means$Treatment
+    
+    QDA_for_chart <- data.frame(Attribute = rownames(QDA_transposed), QDA_transposed)
+    rownames(QDA_for_chart) <- NULL
+    
+    hc <- hchart(QDA_for_chart, type = "line", hcaes(x = Attribute)) |>
+      hc_chart(polar = TRUE) |>
+      hc_title(text = "Radial plot") |>
+      hc_xAxis(categories = QDA_for_chart$Attribute, tickmarkPlacement = 'on', lineWidth = 0) |>
+      hc_yAxis(gridLineInterpolation = 'polygon', lineWidth = 0, min = 0)
+    
+```
+
+# User Interaction and Customization
+
+The application was designed with flexibility and accessibility in mind, offering a variety of interactive widgets that allow users to tailor their analyses in real-time. Through the user interface (UI), researchers can easily:
+
+- Select or exclude specific panelists using `pickerInput()`.
+- Choose individual attributes or treatments to focus the analysis via `selectInput()`.
+- Filter and visualize subsets of data without altering the original dataset.
+- Dynamically update plots and statistical outputs based on their selections.
+
+These reactive components are built using Shiny’s `observe()` and `update*Input()` functions to ensure that changes in user input are immediately reflected in all downstream analyses.
+
+```{r, eval=FALSE}
+# Example of dynamically updating selectable variables
+observe({
+    QDA <- datos_reactivos()
+    if (!is.null(QDA)) {
+      updateSelectInput(session, "SelectedColumn",
+                        choices = colnames(QDA))
+      updateSelectInput(session, "SelectedColumnInteraction",
+                        choices = colnames(QDA))
+      updateSelectInput(session, "SelectedColumnComparison",
+                        choices = colnames(QDA))
+    }
+  })
+  
+observe({
+    QDA <- datos()
+    if (!is.null(QDA)) {
+      updatePickerInput(session, "ExcludePanelists",
+                        choices = unique(QDA$Panelist),
+                        selected = NULL)
+    }
+  })
+  
+observe({
+    QDA <- datos_reactivos()
+    if (!is.null(QDA)) {
+      updatePickerInput(
+        session,
+        inputId = "SelectTreatmentForBiplot",
+        choices = unique(QDA$Treatment),
+        selected = unique(QDA$Treatment)[1]
+      )
+    }
+  })
+```
+
+This level of interactivity provides non-programmers with the ability to conduct complex analyses with precision, while maintaining a seamless workflow within the application.
+
+
+# Example
+
+This section presents a comprehensive application of the Shiny tool using a real-world dataset from a Quantitative Descriptive Analysis (QDA) of yogurt. The dataset includes evaluations of various sensory attributes such as aroma, texture, and flavor across multiple yogurt treatments, with repeated measures by trained panelists.
+
+## Dataset Overview
+
+The Table tab provides an interactive view of the dataset , allowing users to explore the sensory evaluations in detail. It includes key variables such as ``Panelists`, `Repetitions`, `Treatment` and sensory attributes. This functionality ensures that the dataset is organized and ready for further statistical analysis, serving as a preliminary step to verify data integrity and consistency.
+
+```{r}
+library(readxl)
+QDA <- read_excel("Yogurth.xlsx")
+DT::datatable(QDA, options = list(pageLength = 5))
+```
+
+## Correlation Matrix
+
+By condensing the original dataset into a smaller, manageable matrix, the correlation matrix provides a preliminary step in understanding relationships among variables, often serving as the basis for more advanced analyses like PCA (Bartholomew, D. J., 2010). Performing a correlation matrix as the first step in PCA is essential to identify relationships between variables, detect anomalies, and assess data suitability. It highlights redundancy, multicollinearity, or unexpected patterns, ensuring accurate interpretation. This preliminary step simplifies data structure, guiding subsequent PCA for meaningful and reliable dimensionality reduction.
+
+```{r}
+cor_matrix <- cor(QDA[, sapply(QDA, is.numeric)])
+DT::datatable(round(cor_matrix, 2), options = list(pageLength = 5))
+```
+
+*Interpretation:* Strong positive correlations are observed between Strawberry Flavor and Sweet Flavor, as well as between Pink Color and Strawberry Flavor, suggesting that sweeter and more visually vibrant yogurts tend to emphasize strawberry flavor. In contrast, strong negative correlations, such as between Sour Flavor and Sweet Flavor or Sour Flavor and Strawberry Flavor, indicate trade-offs between sourness and sweetness in product formulations. These findings highlight key sensory dynamics that can guide both product optimization and consumer preference mapping.
+
+## PCA
+
+PCA reduces the complexity of a correlation matrix by identifying principal components, which are linear combinations of the original variables that capture the maximum variance in the data. By focusing on these components, PCA highlights the most relevant dimensions, allowing analysts to concentrate on the aspects that matter most (Greenacre *et al.*, 2022).
+
+```{r, warning=FALSE, message=FALSE}
+library(FactoMineR)
+library(factoextra)
+res.pca <- PCA(QDA[, sapply(QDA, is.numeric)], graph = FALSE)
+```
+
+### Eigenvalues
+
+Eigenvalues are derived from the correlation matrix or covariance matrix of the dataset. Each eigenvalue corresponds to a principal component, indicating how much of the dataset’s total variance is captured by that component.
+```{r}
+DT::datatable(get_eigenvalue(res.pca), options = list(pageLength = 5))
+```
+
+In the particular case that we are studying (Figure 4), Dim.1 has the largest eigenvalue (3.546), explaining 44.32% of the variance. This indicates that Dim.1 captures the most important structure in the dataset. Dim.2 adds an additional 14.26%, bringing the cumulative variance explained to 58.58%. Dim.3 contributes 13.92%, raising the cumulative variance to 72.50%, which meets the commonly used threshold of retaining 70-90% of the variance.A common threshold is to retain components that collectively explain 70-90% of the variance, ensuring a balance between dimensionality reduction and information retention. Components with eigenvalues less than 1 (or another set threshold) are often discarded, as they contribute less variability than a single original variable (Bartholomew, 2010).
+
+In the particular case that we are studying , Dim.1 has the largest eigenvalue (3.546), explaining 44.32% of the variance. This indicates that Dim.1 captures the most important structure in the dataset. Dim.2 adds an additional 14.26%, bringing the cumulative variance explained to 58.58%. Dim.3 contributes 13.92%, raising the cumulative variance to 72.50%, which meets the commonly used threshold of retaining 70-90% of the variance. In an ideal case, the first two dimensions should be enough to explain more than 70% which will allow us to make a biplot that can help us to visualize our data, we will review this topic further in the article.
+
+### Eigenvectors
+
+Eigenvectors are the backbone of Principal Component Analysis (PCA). They define the direction of the principal components (PCs) in the multidimensional data space. Each eigenvector is a unit vector associated with an eigenvalue, and together, they determine how the original variables are combined to form each PC.
+
+```{r}
+DT::datatable(res.pca$var$coord, options = list(pageLength = 5))
+```
+
+In this example, the eigenvector Dim.1 combines variables like Strawberry Flavor, Sweet Flavor, and Pink Color, which are positively correlated, suggesting these attributes collectively define the primary axis of differentiation in the dataset. Attributes with negative loadings, such as Lactic Aroma and Sour Flavor, counterbalance this relationship, contributing to the diversity captured by this dimension.
+
+### Biplot
+
+In the Biplot tab, users can dynamically filter the dataset using a pickerInput widget. This functionality allows for the selection of a specific treatment, excluding all others from the analysis. By focusing on one treatment at a time, the resulting biplot visualizes the individual performance of each panelist, providing a clearer understanding of how sensory attributes are perceived for that treatment. Points in the biplot are projected onto the principal components (e.g., Dim.1 and Dim.2), which summarize the majority of variance in panelists’ evaluations. Vectors represent sensory attributes (e.g., Pink Color, Sweet Aroma, etc.) and their relationship to the principal components. The length of a vector indicates the attribute’s importance in explaining variability: longer vectors represent attributes with strong influence, while shorter vectors indicate minimal contribution. The angle between vectors reflects the correlation between attributes, with acute angles indicating positive correlations and obtuse angles indicating negative correlations (Young, 2025).
+
+*Note:* The pickerInput simulation shown below is static and intended to demonstrate how the selection of treatments is handled within the Shiny application. In the actual app, users interactively choose a treatment from a dropdown menu which dynamically updates the biplot accordingly.
+
+```{r, warning = FALSE, message = FALSE}
+library(shinyWidgets)
+# Simulate pickerInput functionality in R Markdown
+selected_treatment <- unique(QDA$Treatment)[2]  # default selection
+
+# Filter data for selected treatment
+filtered_data <- QDA[QDA$Treatment == selected_treatment, ]
+filtered_pca <- PCA(filtered_data[, sapply(filtered_data, is.numeric)], graph = FALSE)
+
+QDA$Treatment <- as.factor(QDA$Treatment)
+filtered_data$Panelist <- droplevels(as.factor(filtered_data$Panelist))
+
+fviz_pca_biplot(
+      filtered_pca,
+      label = "var",
+      habillage = filtered_data$Panelist,
+      addEllipses = TRUE,
+      title = paste("Biplot for Treatment:", selected_treatment)
+    )
+```
+
+*Interpretation:* The spread of points in the biplot reflects variability among panelists for the selected treatment. Clustered points indicate consistent evaluations among panelists, while scattered points suggest divergent perceptions. Each panelist is represented by a unique symbol; when symbols are closely grouped, this suggests a consensus within the panel. In contrast, isolated symbols indicate panelists whose evaluations differ significantly, highlighting the potential need for additional training.
+Vectors that align closely with points provide insights into the attributes driving variability. For instance, if points are aligned with Strawberry Flavor and Sweet Flavor vectors, these attributes heavily influence panelists’ evaluations of the treatment. By repeating the analysis for different treatments using the pickerInput widget, users can identify attributes that consistently drive panelists’ perceptions or highlight treatment-specific sensory characteristics.
+
+## ANOVA and LSD Test on Pink Color
+
+In sensory analysis, panelists are treated as blocking factors to account for variability introduced by individual differences. Products are treated as the experimental treatments being compared. ANOVA assumes no interaction between blocks (panelists) and treatments (samples). This assumption holds for highly trained and calibrated panels but can deviate in less experienced groups due to experimental error.
+
+When analyzing sensory data, it is important to choose a statistical approach that aligns with the study’s objectives and the experimental design.The SensoMineR package simplifies the analysis by using a global Mean Square Error (MSerror) to calculate the F-statistics for treatments. While this approach is suitable for exploratory analyses, it overlooks the separation of error types (Type A and Type B) inherent to a classical split-plot design. This can lead to over- or under-estimation of treatment effects when significant interactions between panelists and treatments exist (Hernandéz-Montes, 2016).
+
+```{r, warning=FALSE, message=FALSE}
+library(SensoMineR)
+
+QDA <- as.data.frame(QDA)
+
+res <- paneliperf(QDA, formul = 
+                    "~ Treatment + Panelist + Repetition +
+          Treatment:Panelist + Treatment:Repetition +
+          Panelist:Repetition",
+                  formul.j = "~ Treatment", 
+                  col.j = 1,
+                  firstvar = 4,
+                  synthesis = TRUE
+)
+
+coltable(magicsort(res$p.value, sort.mat = res$p.value[,1],
+                   bycol = FALSE,
+                   method = "median"
+),
+main.title = "Panel performance (sorted by product
+         P-value)"
+)
+```
+
+When analyzing sensory data, it is important to choose a statistical approach that aligns with the study’s objectives and the experimental design. Although SensoMineR R package offers a practical and sensory-focused solution, I opted for a classical split-plot design implemented through the agricolae package for this study.
+
+In split-plot designs, repetitions are treated as blocks, and treatments (samples) are randomized within these blocks. Panelists are assigned randomly to subplots within the blocks, ensuring a balance in evaluating both treatments and panelists' performance. However, Split-plot designs are particularly useful for identifying interactions between panelists and treatments. These interactions help assess the panel’s consistency and the validity of the additive effects assumption.
+
+For example, the pink_color attribute shows a *p-value* < 0.05 for the variable repetition in the SensoMineR results. However, this value does not match the result shown below, which was calculated using the classical split-plot ANOVA design. This discrepancy is not an isolated case; other attributes and variables exhibit similar inconsistencies.
+
+```{r, warning=FALSE, message=FALSE}
+library(agricolae)
+model_pink <- sp.plot(QDA$Repetition, QDA$Treatment, QDA$Panelist, QDA$pink_color)
+```
+
+By adopting the classical split-plot design, this analysis provides a more rigorous and accurate interpretation of the data, effectively addressing both treatment and panelist variability. While SensoMineR offers a valuable exploratory overview, the classical approach aligns better with the study's objectives, ensuring reliability and precision.
+
+Similar to the previous tab, the Post Hoc Tests tab includes a pickerInput widget that allows users to select a specific sensory attribute for analysis. For this example, we analyze the attribute pink_color, the Least Significant Difference (LSD) method was chosen for this analysis due to its sensitivity and simplicity.
+
+```{r, warning=FALSE, message=FALSE}
+DFerror <- model_pink$gl.a
+MSerror <- model_pink$Ea
+lsd_result <- LSD.test(QDA$pink_color, QDA$Treatment, DFerror, MSerror, group = TRUE)
+
+print(lsd_result$groups)
+```
+
+## Reproducibility Graphs
+
+The reproducibility graphs in the application are generated using line plots, where the x-axis represents the Treatments being evaluated, and the y-axis displays the scores for the selected attribute. Each panel corresponds to a specific panelist, providing a detailed view of their individual performance. Repetitions are grouped and represented within each panel using distinct line styles or markers.
+A selectInput widget allows users to choose a specific sensory attribute (e.g., pink_color, sour_flavor), ensuring a focused analysis of the reproducibility of panelists’ evaluations for the selected attribute. In an ideal case, the lines within a panel (for a specific panelist) should be parallel and closely aligned across repetitions. This indicates consistent scoring by the panelist across all treatments. Conversely, large variations between repetitions suggest panelist inconsistency, which may indicate a need for additional training.
+
+```{r, warning=FALSE}
+library(lattice)
+QDA$Treatment <- as.factor(QDA$Treatment)
+QDA$Panelist <- as.factor(QDA$Panelist)
+QDA$Repetition <- as.numeric(QDA$Repetition)
+QDA <- QDA[order(QDA$Panelist, QDA$Treatment, QDA$Repetition),]
+    
+# Reproducibility plot
+xyplot(QDA$pink_color ~ Treatment | Panelist, groups = Repetition, data = QDA, aspect = "xy", type = "o", auto.key = TRUE)
+
+```
+
+Differences in score trends between treatments suggest that the panelist can effectively discriminate between the sensory attributes of the products. On the other hand, minimal differences between treatments may indicate low attribute variability or difficulty distinguishing between them.
+By examining multiple panels, it is possible to identify panelists whose scores differ significantly between repetitions, as shown in Figure 12 for the panelist "Marian." A more consistent panelist, such as "Andrea" or "Adamaris," would exhibit scores that vary minimally across repetitions and treatments. Additionally, consistency in the pattern across multiple panelists indicates a well-trained and calibrated panel.
+
+## Interaction Graphs
+
+In sensory analysis, a treatment’s sensory attribute may be perceived differently depending on the panelist. This variability is what we describe as interaction, and its presence can complicate the interpretation of main effects. When interaction is not significant, the main effects (e.g., treatment differences) can be interpreted directly and are considered reliable. In this case, the overall trends observed across all levels of the other factor (e.g., panelists) reflect meaningful differences. For instance, a treatment might show a positive effect for one panelist but a negative effect for another. In such cases, the average treatment effect may appear non-significant, even if meaningful differences exist at specific levels of the other factor. This phenomenon, known as masking, highlights the importance of examining the interaction effects before drawing conclusions about the main effects (Walpole *et al.*, 2012).
+
+Consider the sour_flavor attribute where the interaction between Treatment:Panelist is significant. This indicates that some panelists perceive the sour flavor differently across treatments. Such variability may stem from differences in training, calibration, or unique perceptions, all of which need to be addressed before interpreting treatment differences accurately. To analyze these interactions, the "Interaction Graphs" tab was developed. Similar to other sections, a selectInput widget allows users to choose a specific attribute (in this case, sour_flavor), which automatically generates the corresponding interaction graphs.
+
+```{r, warning=FALSE, message=FALSE}
+library(tidyverse)
+QDA$Treatment <- as.factor(QDA$Treatment)
+QDA$Panelist <- as.factor(QDA$Panelist)
+QDA$Repetition <- as.numeric(QDA$Repetition)
+QDA <- QDA[order(QDA$Panelist, QDA$Treatment, QDA$Repetition),]
+    
+# Calculate mean by Panelist and Treatment using the selected column
+    mean_Panelist <- QDA |> 
+      group_by(Panelist, Treatment) |> 
+      summarise(meanPanelist = mean(sour_flavor, na.rm = TRUE), .groups = 'drop')
+    mean_Panelist$AsignValue <- 'Panelist'
+    
+    # Calculate global mean for each Treatment y duplicates means for each Panelist
+    means <- mean_Panelist |> 
+      group_by(Treatment) |>
+      summarise(meanPanelist = mean(meanPanelist)) |>
+      slice(rep(1:n(), each = n_distinct(mean_Panelist$Panelist)))
+    means$AsignValue <- 'mean'
+    means$Panelist <- rep(unique(mean_Panelist$Panelist), times = nrow(means) / length(unique(mean_Panelist$Panelist)))
+    
+    # Create the final dataframe
+    df_final <- bind_rows(mean_Panelist, means) |>
+      arrange(Panelist, Treatment, desc(AsignValue))
+    
+    # Create the plot
+    with(df_final, xyplot(meanPanelist ~ Treatment | Panelist, groups = AsignValue, aspect = "xy", type = "o", auto.key = TRUE))
+```
+
+When there is no interaction, the graphs display parallel lines, indicating consistent responses across treatments. However, two types of interactions can occur:
+1.	Magnitude Interaction: Lines are not parallel but do not intersect. In sensory evaluation, this type of interaction is generally not critical.
+2.	Cross Interaction: Lines intersect or are perpendicular to one another. This type of interaction is highly relevant in sensory evaluation, as it highlights significant variability among panelists.
+In Figure 14, we observe three panelists ("Marian," "Martin," and "Erick") exhibiting cross interaction. This suggests these panelists require additional training for the sour_flavor attribute. If further training is not feasible, the pickerInput tool included in this tab can be used to exclude these panelists from all calculations, including graphs, ANOVA, PCA, and more. By excluding these panelists and revisiting the ANOVA table, the interaction effect is notably reduced, improving the reliability of the analysis.
+
+## Radial Plot and Preference Map
+
+The radial plot is a visualization tool used to compare the intensity of sensory attributes across treatments. It provides an intuitive way to understand how different treatments perform across multiple attributes simultaneously, making it easier to identify strengths and weaknesses in the sensory profiles of products.
+
+```{r, warning=FALSE, message=FALSE}
+library(dplyr)
+library(highcharter)
+QDA_means <- QDA |>
+      select(-Panelist, -Repetition) |>
+      group_by(Treatment) |>
+      summarise_all(mean, na.rm = TRUE) |>
+      ungroup()
+    
+    QDA_means <- as.data.frame(QDA_means)
+    
+    QDA_transposed <- as.data.frame(t(QDA_means[-1]))
+    colnames(QDA_transposed) <- QDA_means$Treatment
+    
+    QDA_for_chart <- data.frame(Attribute = rownames(QDA_transposed), QDA_transposed)
+    rownames(QDA_for_chart) <- NULL
+    
+    hc <- hchart(QDA_for_chart, type = "line", hcaes(x = Attribute)) |>
+      hc_chart(polar = TRUE) |>
+      hc_title(text = "Radial plot") |>
+      hc_xAxis(categories = QDA_for_chart$Attribute, tickmarkPlacement = 'on', lineWidth = 0) |>
+      hc_yAxis(gridLineInterpolation = 'polygon', lineWidth = 0, min = 0)
+    
+    for(treatment in colnames(QDA_transposed)) {
+      hc <- hc |> hc_add_series(data = QDA_transposed[[treatment]], name = treatment)
+    }
+    
+    hc |> hc_tooltip(shared = TRUE, pointFormat = '<span style="color:{series.color}">{series.name}: <b>{point.y:.2f}</b><br/>')
+
+```
+
+### External Preference Mapping
+
+The EPM is generated using a Principal Component Analysis (PCA), which reduces the multidimensional data from sensory evaluations into two primary components (e.g., Dim.1 and Dim.2). These components capture most of the variability in the dataset, providing a simplified view of the relationships between sensory attributes and treatments.
+
+```{r}
+QDA$Treatment <- as.factor(QDA$Treatment)
+
+fviz_pca_biplot(res.pca, label = "var", habillage = QDA$Treatment, addEllipses = FALSE, title = "External Preference Map")
+```
+
+Points represent treatments (e.g., Yoplait, Activia), colored based on their categorical grouping (e.g., treatments). The bigger points are the centered data or mean. Vectors represent sensory attributes (e.g., pink_color, sour_flavor). The direction and length of a vector indicate the strength and influence of that attribute on the components. Points (treatments) close to a vector are influenced by the corresponding attribute. 
+
+# Conclusion
+
+The R Shiny application presented in this paper provides a comprehensive and intuitive solution to the complexities involved in the statistical analysis of Quantitative Descriptive Analysis (QDA) data. By integrating advanced statistical methods and interactive visualization features, the application significantly simplifies the analytical workflow, enhances user experience, and promotes reproducibility and transparency in sensory research.
+Our validation demonstrates the application's reliability and accuracy through rigorous cross-validation with established statistical methods. Despite limitations related to performance with extremely large datasets, ongoing enhancements aim to address these constraints and expand functionalities further.
+Ultimately, this application bridges the gap between traditional sensory analysis techniques and modern data science tools, empowering sensory scientists and product developers to make informed, data-driven decisions efficiently and confidently.
+
+# References
+
+- Bartholomew, D. J., 2010. *Analysis and Interpretation of Multivariate Data*. *International Encyclopedia of Education*, 12–17. doi:10.1016/b978-0-08-044894-7.01303-8
+
+- Bartholomew, D. J. 2010. *Principal Components Analysis*. *International Encyclopedia of Education*, 374–377. doi:10.1016/b978-0-08-044894-7.01358-0
+
+- Chang W, Cheng J, Allaire J, Sievert C, Schloerke B, Xie Y, Allen J, McPherson J, Dipert A, Borges B (2024). shiny: Web *Application Framework for R_*. R package version 1.10.0, <https://CRAN.R-project.org/package=shiny>.
+
+- de Mendiburu F (2023). _agricolae: Statistical Procedures for Agricultural Research_. R package version 1.3-7, <https://CRAN.R-project.org/package=agricolae>
+
+- Douglas Bates, Martin Maechler, Ben Bolker, Steve Walker (2015). *Fitting Linear Mixed-Effects Models Using lme4*. *Journal of Statistical Software*, 67(1), 1-48. doi:10.18637/jss.v067.i01.
+
+- Greenacre, M., Groenen, P.J.F., Hastie, T. et al. *Principal component analysis*. *Nat Rev Methods Primers 2*, 100 (2022). https://doi.org/10.1038/s43586-022-00184-w
+
+- Hernandéz Montes, A. (2016).*Evaluación Sensorial de productos Agroalimentario*s. Texcoco, México: Universidad Autónoma Chapingo. 95-108
+
+- Husson F, Le S, Cadoret M (2023). _SensoMineR: Sensory Data Analysis_. R package version 1.27, <https://CRAN.R-project.org/package=SensoMineR>.
+
+- H. Wickham. ggplot2: *Elegant Graphics for Data Analysis*. Springer-Verlag New York, 2016
+
+- Kassambara A, Mundt F (2020). _factoextra: Extract and Visualize the Results of Multivariate Data Analyses_. R package version 1.0.7, <https://CRAN.R-project.org/package=factoextra>.
+
+- Kunst J (2022). _highcharter: A Wrapper for the 'Highcharts' Library_. R package version 0.9.4, <https://CRAN.R-project.org/package=highcharter>.
+
+- Kuznetsova A, Brockhoff PB, Christensen RHB (2017). *“lmerTest Package: Tests in Linear Mixed Effects Models.”* *Journal of Statistical Software*, *82*(13), 1-26. doi:10.18637/jss.v082.i13 <https://doi.org/10.18637/jss.v082.i13>.
+
+- Lenth R (2024). *emmeans: Estimated Marginal Means, aka Least-Squares Means*. R package version 1.10.6, <https://CRAN.R-project.org/package=emmeans>.
+
+- Meilgaard, M. C., Civille, G. V., & Carr, B. T. (2007). *Descriptive Analysis Techniques*. *Sensory Evaluation Technique* (págs. 209-210). New york: CRC Press. doi:https://doi.org/10.1201/b16452
+
+- Perrier V, Meyer F, Granjon D (2024). *shinyWidgets: Custom Inputs Widgets for Shiny*. R package version 0.8.7,
+  <https://CRAN.R-project.org/package=shinyWidgets>.
+
+- Sarkar D (2008). *Lattice: Multivariate Data Visualization with R*. Springer, New York. ISBN 978-0-387-75968-5, <http://lmdvr.r-forge.r-project.org>.
+
+- Sebastien Le, Julie Josse, Francois Husson (2008). *FactoMineR: An R Package for Multivariate Analysis*. *Journal of Statistical Software*, 25(1), 1-18. 10.18637/jss.v025.i01
+
+- Stone, H., Sidel, J., Oliver, S., Woolsey, A., & Singleton, R. C. (1974). *Sensory Evaluation by Quantitative Descriptive Analysis*. *Food Technology(8)*, 24-32. doi:10.1002/9780470385036.ch1c
+
+- Walpole, R. E., Myers, R. L., Myers, S. L., & Ye, K. (2012). *Probabilidad y estadística para ingeniería y ciencias*. México: *PEARSON EDUCACIÓN*.
+
+- Wickham H, Bryan J (2023). *readxl: Read Excel Files*. R package version 1.4.3, <https://CRAN.R-project.org/package=readxl>.
+
+- Wickham H, François R, Henry L, Müller K, Vaughan D (2023). *dplyr: A Grammar of Data Manipulation*. R package version 1.1.4, <https://CRAN.R-project.org/package=dplyr>.
+
+- Xie Y, Cheng J, Tan X (2024). *DT: A Wrapper of the JavaScript Library 'DataTables'*. R package version 0.33, <https://CRAN.R-project.org/package=DT>.
+
+- Young, F. W. (09 de 01 de 2025). *Universitat de València*. Obtenido de https://www.uv.es/visualstats/vista-frames/help/lecturenotes/lecture13/biplot.html
