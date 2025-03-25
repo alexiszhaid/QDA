@@ -3,7 +3,7 @@ title: "Simplifying Sensory Data Analysis: A Shiny Application for Quantitative 
 author: "Alexis Zhaid Carrillo-García"
 affiliation: "Departamento de Ingeniería Agroindustrial, Universidad Autónoma Chapingo, México"
 email: "alexiszcg@gmail.com"
-orcid: "https://orcid.org/0000-0003-0593-4657"
+github: "https://github.com/alexiszhaid"
 output: html_document
 ---
 
