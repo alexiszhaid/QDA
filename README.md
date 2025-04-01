@@ -38,8 +38,9 @@ Load your data using the file input. (only .xlsx file by now)
 Select specific attributes for analysis.
 Explore the results through the tabs for PCA, ANOVA, reproducibility, and more.
 
-Contact
-For feedback, suggestions, or questions:
+📩 Contact If you have questions, suggestions, or want to collaborate on the book project, feel free to reach out:
 
-Email: alexiszcg@gmail.com
-LinkedIn: Alexis Zhaid Carrillo García (https://www.linkedin.com/in/alexis-zhaid-carrillo-garc%C3%ADa-2b01ba205/)
+- 📧 Email: alexiszcg@gmail.com  
+- 🧠 GitHub: [@alexiszhaid](https://github.com/alexiszhaid)  
+- 📘 LinkedIn: [Alexis Zhaid](https://www.linkedin.com/in/alexis-zhaid-carrillo-garc%C3%ADa-2b01ba205/)  
+- 📍 Location: Mexico
